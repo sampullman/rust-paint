@@ -1,0 +1,17 @@
+[package]
+name = "rust-paint"
+version = "0.1.0"
+authors = ["Sam Pullman <sampullman@gmail.com>"]
+
+[dependencies]
+glium = { version = "0.16.0", optional = true }
+winit = { version = "0.5.9", optional = true }
+find_folder = "0.3.0"
+rand = "0.3.13"
+
+[dependencies.conrod]
+version = "*"
+features = ["glium", "winit"]
+
+[features]
+piston = ["glium", "winit"]
