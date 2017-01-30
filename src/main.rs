@@ -293,7 +293,7 @@ fn main() {
            let ui = &mut ui.set_widgets();
 
             // Sets a color to clear the background with before the Ui draws our widget.
-            widget::Canvas::new().color(conrod::color::DARK_RED).set(ids.background, ui);
+            widget::Canvas::new().color(conrod::color::LIGHT_RED).set(ids.background, ui);
 
             // Instantiate of our custom widget.
             for _click in PaintArea::new()
