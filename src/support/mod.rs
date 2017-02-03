@@ -355,7 +355,6 @@ pub fn gui(ui: &mut conrod::UiCell, ids: &Ids, app: &mut DemoApp) {
 
 }
 
-
 /// In most of the examples the `glutin` crate is used for providing the window context and
 /// events while the `glium` crate is used for displaying `conrod::render::Primitives` to the
 /// screen.
