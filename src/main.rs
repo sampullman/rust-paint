@@ -19,7 +19,7 @@ use support::EventLoop;
 
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
-    use conrod::{self, widget, Colorable, Labelable, Positionable, Sizeable, Widget};
+    use conrod::{self, color, widget, Colorable, Positionable, Sizeable, Widget};
     use self::paint_area;
 
     const WIDTH: u32 = 1000;
@@ -29,7 +29,7 @@ fn main() {
     let display = WindowBuilder::new()
         .with_vsync()
         .with_dimensions(WIDTH, HEIGHT)
-        .with_title("Control Panel")
+        .with_title("Rust Paint")
         .build_glium()
         .unwrap();
 
@@ -72,18 +72,14 @@ fn main() {
            let ui = &mut ui.set_widgets();
 
             // Sets a color to clear the background with before the Ui draws our widget.
-            widget::Canvas::new().color(conrod::color::BLACK).set(ids.background, ui);
+            widget::Canvas::new()
+                .color(color::WHITE)
+                .set(ids.background, ui);
 
             // Instantiate of our custom widget.
             for _click in paint_area::PaintArea::new()
-                .color(conrod::color::WHITE)
                 .middle_of(ids.background)
                 .w_h(WIDTH as f64, HEIGHT as f64)
-                .label_font_id(regular)
-                .label_color(conrod::color::BLACK)
-                .label("Paint Area")
-                // Add the widget to the conrod::Ui. This schedules the widget it to be
-                // drawn when we call Ui::draw.
                 .set(ids.paint, ui)
             {
                 println!("Click!");
