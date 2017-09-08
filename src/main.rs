@@ -5,19 +5,28 @@ mod paint_area;
 
 #[cfg(all(feature="winit", feature="glium"))] mod support;
 
+use conrod::backend::glium::Renderer;
+use conrod::glium::glutin::{WindowBuilder};
+use conrod::glium::backend::glutin_backend::GlutinFacade;
+use conrod::glium::texture::Texture2d;
+use conrod::glium::glutin::Event::KeyboardInput;
+use conrod::glium::glutin::Event;
+use conrod::glium::glutin::VirtualKeyCode;
+use conrod::image::Map;
+use conrod::backend::glium::glium::{DisplayBuild, Surface};
+use conrod::backend::winit::convert as convert_event;
+use support::EventLoop;
+
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
     use conrod::{self, widget, Colorable, Labelable, Positionable, Sizeable, Widget};
-    use conrod::backend::glium::glium;
-    use conrod::backend::glium::glium::{DisplayBuild, Surface};
-    use support;
     use self::paint_area;
 
-    const WIDTH: u32 = 1200;
-    const HEIGHT: u32 = 800;
+    const WIDTH: u32 = 1000;
+    const HEIGHT: u32 = 600;
 
     // Build the window.
-    let display = glium::glutin::WindowBuilder::new()
+    let display = WindowBuilder::new()
         .with_vsync()
         .with_dimensions(WIDTH, HEIGHT)
         .with_title("Control Panel")
@@ -45,31 +54,17 @@ fn main() {
 
     // A type used for converting `conrod::render::Primitives` into `Command`s that can be used
     // for drawing to the glium `Surface`.
-    let mut renderer = conrod::backend::glium::Renderer::new(&display).unwrap();
+    let mut renderer = Renderer::new(&display).unwrap();
 
     // The image map describing each of our widget->image mappings (in our case, none).
-    let image_map = conrod::image::Map::<glium::texture::Texture2d>::new();
+    let image_map = Map::<Texture2d>::new();
 
     // Poll events from the window.
-    let mut event_loop = support::EventLoop::new();
+    let mut event_loop = EventLoop::new();
     'main: loop {
 
-        // Handle all events.
-        for event in event_loop.next(&display) {
-
-            // Use the `winit` backend feature to convert the winit event to a conrod one.
-            if let Some(event) = conrod::backend::winit::convert(event.clone(), &display) {
-                ui.handle_event(event);
-                event_loop.needs_update();
-            }
-
-            match event {
-                // Break from the loop upon `Escape`.
-                glium::glutin::Event::KeyboardInput(_, _, Some(glium::glutin::VirtualKeyCode::Escape)) |
-                glium::glutin::Event::Closed =>
-                    break 'main,
-                _ => {},
-            }
+        if handle_events(&mut ui, &display, &mut event_loop) {
+            break 'main
         }
 
         // Instantiate the widgets.
@@ -95,19 +90,46 @@ fn main() {
             }
         }
 
-        // Render the `Ui` and then display it on the screen.
-        if let Some(primitives) = ui.draw_if_changed() {
-            renderer.fill(&display, primitives, &image_map);
-            let mut target = display.draw();
-            target.clear_color(0.0, 0.0, 0.0, 1.0);
-            renderer.draw(&display, &mut target, &image_map).unwrap();
-            target.finish().unwrap();
+        render(&mut ui, &mut renderer, &display, &image_map);
+    }
+}
+
+fn handle_events(ui: &mut conrod::Ui, display: &GlutinFacade, event_loop: &mut EventLoop)
+        -> bool {
+    // Handle all events.
+    for event in event_loop.next(display) {
+
+        // Use the `winit` backend feature to convert the winit event to a conrod one.
+        if let Some(event) = convert_event(event.clone(), display) {
+            ui.handle_event(event);
+            event_loop.needs_update();
         }
+
+        match event {
+            // Break from the loop upon `Escape`.
+            KeyboardInput(_, _, Some(VirtualKeyCode::Escape)) |
+            Event::Closed =>
+                return true,
+            _ => {},
+        }
+    }
+    return false
+}
+
+fn render(ui: &mut conrod::Ui, renderer: &mut Renderer, display: &GlutinFacade,
+            image_map: &Map<Texture2d>) {
+                
+    if let Some(primitives) = ui.draw_if_changed() {
+        renderer.fill(&display, primitives, &image_map);
+        let mut target = display.draw();
+        target.clear_color(0.0, 0.0, 0.0, 1.0);
+        renderer.draw(display, &mut target, image_map).unwrap();
+        target.finish().unwrap()
     }
 }
 
 #[cfg(not(all(feature="winit", feature="glium")))]
 fn main() {
     println!("This example requires the `winit` and `glium` features. \
-             Try running `cargo run --release --features=\"winit glium\" --example <example_name>`");
+             Try running `cargo run --release --features=\"winit glium\"`");
 }

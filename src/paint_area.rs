@@ -1,11 +1,15 @@
 
-use conrod::{self, widget, Colorable, Dimensions, Labelable, Point, Positionable, Widget};
+use conrod::{self, widget, Colorable, Dimensions, Labelable, Point,
+                Positionable, Widget, Color, FontSize, Scalar};
+use conrod::text::font::Id;
+use conrod::widget::{CommonBuilder, CommonState, UpdateArgs, PointPath, Text};
+use conrod::{input, Ui};
 
 /// The type upon which we'll implement the `Widget` trait.
 pub struct PaintArea<'a> {
     /// An object that handles some of the dirty work of rendering a GUI. We don't
     /// really have to worry about it.
-    common: widget::CommonBuilder,
+    common: CommonBuilder,
     /// Optional label string for the button.
     maybe_label: Option<&'a str>,
     /// See the Style struct below.
@@ -24,19 +28,16 @@ widget_style!{
     /// Represents the unique styling for our PaintArea widget.
     style Style {
         /// Color of the button.
-        - color: conrod::Color { theme.shape_color }
+        - color: Color { theme.shape_color }
         /// Color of the button's label.
-        - label_color: conrod::Color { theme.label_color }
+        - label_color: Color { theme.label_color }
         /// Font size of the button's label.
-        - label_font_size: conrod::FontSize { theme.font_size_medium }
+        - label_font_size: FontSize { theme.font_size_medium }
         /// Specify a unique font for the label.
-        - label_font_id: Option<conrod::text::font::Id> { theme.font_id }
+        - label_font_id: Option<Id> { theme.font_id }
     }
 }
 
-// We'll create the widget using a `Circle` widget and a `Text` widget for its label.
-//
-// Here is where we generate the type that will produce these identifiers.
 widget_ids! {
     struct Ids {
         text,
@@ -70,7 +71,7 @@ impl<'a> PaintArea<'a> {
     /// Create a button context to be built upon.
     pub fn new() -> Self {
         PaintArea {
-            common: widget::CommonBuilder::new(),
+            common: CommonBuilder::new(),
             maybe_label: None,
             style: Style::new(),
             enabled: true,
@@ -78,7 +79,7 @@ impl<'a> PaintArea<'a> {
     }
 
     /// Specify the font used for displaying the label.
-    pub fn label_font_id(mut self, font_id: conrod::text::font::Id) -> Self {
+    pub fn label_font_id(mut self, font_id: Id) -> Self {
         self.style.label_font_id = Some(Some(font_id));
         self
     }
@@ -88,6 +89,25 @@ impl<'a> PaintArea<'a> {
     pub fn enabled(mut self, flag: bool) -> Self {
         self.enabled = flag;
         self
+    }
+
+    fn handle_input(&self, ui: &Ui, input: input::Widget, state: &mut widget::State<<PaintArea<'a> as Widget>::State>, style: &Style)
+                 -> (Color, Option<()>) {
+        // If the button was clicked, produce `Some` event.
+        let event = input.clicks().left().next().map(|_| ());
+
+        let drag_option = input.drags().left().next();
+        if let Some(drag) = drag_option {
+
+            state.update(|state| {
+                state.points.push(drag.from);
+                state.points.push(drag.to);
+            });
+            println!("Drag {:?}", drag.to);
+        }
+        let color = style.color(&ui.theme);
+
+        (color, event)
     }
 }
 
@@ -103,11 +123,11 @@ impl<'a> Widget for PaintArea<'a> {
     /// `Some` when clicked, otherwise `None`.
     type Event = Option<()>;
 
-    fn common(&self) -> &widget::CommonBuilder {
+    fn common(&self) -> &CommonBuilder {
         &self.common
     }
 
-    fn common_mut(&mut self) -> &mut widget::CommonBuilder {
+    fn common_mut(&mut self) -> &mut CommonBuilder {
         &mut self.common
     }
 
@@ -119,41 +139,12 @@ impl<'a> Widget for PaintArea<'a> {
         self.style.clone()
     }
 
-    /// Update the state of the button by handling any input that has occurred since the last
-    /// update.
-    fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
-        let widget::UpdateArgs { id, mut state, rect, mut ui, style, .. } = args;
+    fn update(self, args: UpdateArgs<Self>) -> Self::Event {
+        let UpdateArgs { id, mut state, rect, mut ui, style, .. } = args;
 
-        let (color, event) = {
+        let (_, event) = {
             let input = ui.widget_input(id);
-
-            // If the button was clicked, produce `Some` event.
-            let event = input.clicks().left().next().map(|_| ());
-
-            let drag_option = input.drags().left().next();
-            if let Some(drag) = drag_option {
-
-                state.update(|state| {
-                    state.points.push(drag.from);
-                    state.points.push(drag.to);
-                });
-                println!("Drag {:?}", drag.to);
-            }
-
-            let color = style.color(&ui.theme);
-            let color = input.mouse().map_or(color, |mouse| {
-                if is_over_circ([0.0, 0.0], mouse.rel_xy(), rect.dim()) {
-                    if mouse.buttons.left().is_down() {
-                        color.clicked()
-                    } else {
-                        color.highlighted()
-                    }
-                } else {
-                    color
-                }
-            });
-
-            (color, event)
+            self.handle_input(&ui, input, state, style)
         };
         /*
         widget::Rectangle::fill([rect.w(), rect.h()])
@@ -163,9 +154,14 @@ impl<'a> Widget for PaintArea<'a> {
             .set(state.ids.background, ui);
         */
 
-        const SHAPE_GAP: conrod::Scalar = 50.0;
+        const SHAPE_GAP: Scalar = 50.0;
 
-        widget::PointPath::abs(state.points.clone())
+        let (_, path_event) = {
+            let point_path_input = ui.widget_input(state.ids.path);
+            self.handle_input(ui, point_path_input, state, style)
+        };
+
+        PointPath::abs(state.points.clone())
             .middle_of(id)
             .set(state.ids.path, ui);
 
@@ -174,8 +170,8 @@ impl<'a> Widget for PaintArea<'a> {
             let label_color = style.label_color(&ui.theme);
             let font_size = style.label_font_size(&ui.theme);
             let font_id = style.label_font_id(&ui.theme).or(ui.fonts.ids().next());
-            widget::Text::new(label)
-                .and_then(font_id, widget::Text::font_id)
+            Text::new(label)
+                .and_then(font_id, Text::font_id)
                 .middle_of(id)
                 .font_size(font_size)
                 .graphics_for(id)
@@ -190,7 +186,7 @@ impl<'a> Widget for PaintArea<'a> {
 
 /// Provide the chainable color() configuration method.
 impl<'a> Colorable for PaintArea<'a> {
-    fn color(mut self, color: conrod::Color) -> Self {
+    fn color(mut self, color: Color) -> Self {
         self.style.color = Some(color);
         self
     }
@@ -203,11 +199,11 @@ impl<'a> Labelable<'a> for PaintArea<'a> {
         self.maybe_label = Some(text);
         self
     }
-    fn label_color(mut self, color: conrod::Color) -> Self {
+    fn label_color(mut self, color: Color) -> Self {
         self.style.label_color = Some(color);
         self
     }
-    fn label_font_size(mut self, size: conrod::FontSize) -> Self {
+    fn label_font_size(mut self, size: FontSize) -> Self {
         self.style.label_font_size = Some(size);
         self
     }
