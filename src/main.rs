@@ -1,20 +1,19 @@
 
 #[macro_use] extern crate conrod;
+#[macro_use] extern crate conrod_derive;
 extern crate find_folder;
 mod paint_area;
 
 #[cfg(all(feature="winit", feature="glium"))] mod support;
 
 use conrod::backend::glium::Renderer;
-use conrod::glium::glutin::{WindowBuilder};
-use conrod::glium::backend::glutin_backend::GlutinFacade;
+use conrod::glium;
+use conrod::glium::Display;
 use conrod::glium::texture::Texture2d;
-use conrod::glium::glutin::Event::KeyboardInput;
-use conrod::glium::glutin::Event;
-use conrod::glium::glutin::VirtualKeyCode;
+use conrod::glium::glutin::{ContextBuilder, WindowBuilder, EventsLoop, VirtualKeyCode};
 use conrod::image::Map;
-use conrod::backend::glium::glium::{DisplayBuild, Surface};
-use conrod::backend::winit::convert as convert_event;
+use conrod::backend::glium::glium::Surface;
+use conrod::backend::winit::convert_event;
 use support::EventLoop;
 
 #[cfg(all(feature="winit", feature="glium"))]
@@ -26,12 +25,15 @@ fn main() {
     const HEIGHT: u32 = 600;
 
     // Build the window.
-    let display = WindowBuilder::new()
-        .with_vsync()
+    let mut events_loop = EventsLoop::new();
+    let window = WindowBuilder::new()
         .with_dimensions(WIDTH, HEIGHT)
-        .with_title("Rust Paint")
-        .build_glium()
-        .unwrap();
+        .with_title("Rust Paint");
+    let context = ContextBuilder::new()
+            .with_vsync(true)
+            .with_multisampling(4);
+
+    let display = Display::new(window, context, &events_loop).unwrap();
 
     // construct our `Ui`.
     let mut ui = conrod::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
@@ -60,10 +62,9 @@ fn main() {
     let image_map = Map::<Texture2d>::new();
 
     // Poll events from the window.
-    let mut event_loop = EventLoop::new();
     'main: loop {
 
-        if handle_events(&mut ui, &display, &mut event_loop) {
+        if handle_events(&mut ui, &display, &mut events_loop) {
             break 'main
         }
 
@@ -90,10 +91,11 @@ fn main() {
     }
 }
 
-fn handle_events(ui: &mut conrod::Ui, display: &GlutinFacade, event_loop: &mut EventLoop)
+fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut EventsLoop, )
         -> bool {
     // Handle all events.
-    for event in event_loop.next(display) {
+    let mut event_loop = EventLoop::new();
+    for event in event_loop.next(&mut events_loop) {
 
         // Use the `winit` backend feature to convert the winit event to a conrod one.
         if let Some(event) = convert_event(event.clone(), display) {
@@ -102,17 +104,25 @@ fn handle_events(ui: &mut conrod::Ui, display: &GlutinFacade, event_loop: &mut E
         }
 
         match event {
-            // Break from the loop upon `Escape`.
-            KeyboardInput(_, _, Some(VirtualKeyCode::Escape)) |
-            Event::Closed =>
-                return true,
-            _ => {},
+            glium::glutin::Event::WindowEvent { event, .. } => match event {
+                // Break from the loop upon `Escape`.
+                glium::glutin::WindowEvent::Closed |
+                glium::glutin::WindowEvent::KeyboardInput {
+                    input: glium::glutin::KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        ..
+                    },
+                    ..
+                } => return true,
+                _ => (),
+            },
+            _ => (),
         }
     }
     return false
 }
 
-fn render(ui: &mut conrod::Ui, renderer: &mut Renderer, display: &GlutinFacade,
+fn render(ui: &mut conrod::Ui, renderer: &mut Renderer, display: &Display,
             image_map: &Map<Texture2d>) {
                 
     if let Some(primitives) = ui.draw_if_changed() {

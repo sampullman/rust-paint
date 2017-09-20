@@ -4,13 +4,15 @@ version = "0.1.0"
 authors = ["Sam Pullman <sampullman@gmail.com>"]
 
 [dependencies]
-glium = { version = "0.16.0", optional = true }
-winit = { version = "0.5.9", optional = true }
+glium = { version = "0.17.0", optional = true }
+winit = { version = "0.7", optional = true }
 find_folder = "0.3.0"
 rand = "0.3.13"
+conrod_derive = "0.1"
 
 [dependencies.conrod]
-version = "*"
+version = "0.55.0"
+path = "../libraries/conrod"
 features = ["glium", "winit"]
 
 [features]
