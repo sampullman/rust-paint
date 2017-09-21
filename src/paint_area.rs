@@ -1,13 +1,14 @@
-use conrod::{widget, Colorable, Positionable, Widget, Scalar};
-use conrod::text::font::Id;
+use conrod::{widget, Colorable, Positionable, Widget};
+use conrod::text::font;
 use conrod::widget::{Common, CommonBuilder, UpdateArgs, PointPath, id};
-use conrod::widget::id::Generator;
+use conrod::widget::id::{Id, Generator};
 use conrod::{input, Ui, color};
 use conrod::event::Widget::{Press, Drag, Release};
 use conrod::event::Button::Mouse;
 use conrod::input::MouseButton::Left;
 use conrod::position::Point;
 use std::cell::RefCell;
+use support::id::IdPool;
 
 pub struct PaintArea {
     /// Handles some of the dirty work of rendering a GUI.
@@ -29,8 +30,9 @@ widget_ids! {
 
 /// Represents the unique, cached state for our PaintArea widget.
 pub struct State {
+    id_pool: IdPool,
     ids: Ids,
-    line_ids: id::List,
+    line_ids: Vec<Id>,
     lines: Vec<Vec<[f64; 2]>>,
     points: Vec<[f64; 2]>,
 }
@@ -69,15 +71,11 @@ impl PaintArea {
         }
 
         let release_option = input.releases().mouse().left().next();
-        if let Some(release) = release_option {
+        if let Some(_) = release_option {
             println!("Release!");
             return Some(PaintAction::Release)
         }
         None
-    }
-
-    fn resize(&self, list: &mut id::List, new_id: id::Id) {
-
     }
 
     fn handle_action(&self, state: &mut widget::State<<PaintArea as Widget>::State>,
@@ -97,7 +95,14 @@ impl PaintArea {
 
                 println!("Added line2!");
                 state.update(|state| {
-                    state.lines.push(state.points.clone());
+
+                    if let Some(new_id) = state.id_pool.get() {
+                        state.line_ids.push(new_id);
+                        state.lines.push(state.points.clone());
+                    } else {
+                        println!("No ids left!");
+                        // TODO -- should probably panic, or alert user
+                    }
                     state.points.clear();
                 });
             }
@@ -126,10 +131,10 @@ impl Widget for PaintArea {
     type Event = Option<()>;
 
     fn init_state<'b>(&self, id_gen: Generator) -> Self::State {
-        State {
+        State { id_pool: IdPool::new(),
                 ids: Ids::new(id_gen),
-                line_ids: id::List::new(),
-                lines: vec![vec![]],
+                line_ids: vec![],
+                lines: vec![],
                 points: vec![] }
     }
 
@@ -141,14 +146,12 @@ impl Widget for PaintArea {
         let UpdateArgs { id, mut state, mut ui, .. } = args;
 
         if let Some(action) = self.handle_input(&ui, id) {
-            if action == PaintAction::Release {
 
-                println!("Added line1!");
-                state.update(|state| {
-                    let len = state.lines.len()+1;
-                    state.line_ids.resize(len, &mut ui.widget_id_generator());
-                });
-            }
+            // Make sure we have enough Ids in the pool, in case a Widget is created
+            state.update(|state| {
+                state.id_pool.repopulate(&mut ui.widget_id_generator());
+            });
+
             self.handle_action(&mut state, action);
         }
         /*
@@ -163,19 +166,17 @@ impl Widget for PaintArea {
         for i in 0..state.line_ids.len() {
 
             let line_id = state.line_ids[i];
-            let line = &state.lines[i];
 
             if let Some(action) = self.handle_input(&ui, line_id) {
                 actions.push(action);
             }                         
         }
         for action in actions.into_iter() {
-            if action == PaintAction::Release {
-                state.update(|state| {
-                    let len = state.lines.len()+1;
-                    state.line_ids.resize(len, &mut ui.widget_id_generator());
-                });
-            }
+            // Make sure we have enough Ids in the pool, in case a Widget is created
+            state.update(|state| {
+                state.id_pool.repopulate(&mut ui.widget_id_generator());
+            });
+
             self.handle_action(&mut state, action);
         }
         for (line, &line_id) in state.lines.iter().zip(state.line_ids.iter()) {
