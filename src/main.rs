@@ -15,11 +15,12 @@ use conrod::image::Map;
 use conrod::backend::glium::glium::Surface;
 use conrod::backend::winit::convert_event;
 use support::EventLoop;
+use self::paint_area::PaintArea;
+use self::paint_area::Action;
 
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
     use conrod::{self, color, widget, Colorable, Positionable, Sizeable, Widget};
-    use self::paint_area;
 
     const WIDTH: u32 = 1000;
     const HEIGHT: u32 = 600;
@@ -64,7 +65,9 @@ fn main() {
     // Poll events from the window.
     'main: loop {
 
-        if handle_events(&mut ui, &display, &mut events_loop) {
+        let action = handle_events(&mut ui, &display, &mut events_loop);
+        if action == Action::Quit {
+            println!("QUIT");
             break 'main
         }
 
@@ -78,7 +81,7 @@ fn main() {
                 .set(ids.background, ui);
 
             // Instantiate of our custom widget.
-            for _click in paint_area::PaintArea::new()
+            for _click in PaintArea::new(action)
                 .middle_of(ids.background)
                 .w_h(WIDTH as f64, HEIGHT as f64)
                 .set(ids.paint, ui)
@@ -92,7 +95,7 @@ fn main() {
 }
 
 fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut EventsLoop, )
-        -> bool {
+        -> Action {
     // Handle all events.
     let mut event_loop = EventLoop::new();
     for event in event_loop.next(&mut events_loop) {
@@ -106,20 +109,23 @@ fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut E
         match event {
             glium::glutin::Event::WindowEvent { event, .. } => match event {
                 // Break from the loop upon `Escape`.
-                glium::glutin::WindowEvent::Closed |
+                glium::glutin::WindowEvent::Closed => {
+                    return Action::Quit
+                },
                 glium::glutin::WindowEvent::KeyboardInput {
                     input: glium::glutin::KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::Escape),
+                        state: glium::glutin::ElementState::Pressed,
                         ..
                     },
                     ..
-                } => return true,
+                } => return Action::Cancel,
                 _ => (),
             },
             _ => (),
         }
     }
-    return false
+    return Action::None
 }
 
 fn render(ui: &mut conrod::Ui, renderer: &mut Renderer, display: &Display,

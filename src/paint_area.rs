@@ -1,20 +1,16 @@
 use conrod::{widget, Colorable, Positionable, Widget};
-use conrod::text::font;
 use conrod::widget::{Common, CommonBuilder, UpdateArgs, PointPath, id};
 use conrod::widget::id::{Id, Generator};
-use conrod::{input, Ui, color};
-use conrod::event::Widget::{Press, Drag, Release};
-use conrod::event::Button::Mouse;
-use conrod::input::MouseButton::Left;
+use conrod::{Ui, color};
 use conrod::position::Point;
-use std::cell::RefCell;
 use support::id::IdPool;
 
 pub struct PaintArea {
     /// Handles some of the dirty work of rendering a GUI.
     common: CommonBuilder,
     /// See the Style struct below.
-    style: Style
+    style: Style,
+    action: Action,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -30,6 +26,7 @@ widget_ids! {
 
 /// Represents the unique, cached state for our PaintArea widget.
 pub struct State {
+    mouse_pressed: bool,
     id_pool: IdPool,
     ids: Ids,
     line_ids: Vec<Id>,
@@ -44,35 +41,34 @@ enum PaintAction {
     Release,
 }
 
+#[derive(PartialEq)]
+pub enum Action {
+    None,
+    Quit,
+    Cancel,
+}
+
 impl PaintArea {
 
-    /// Create a button context to be built upon.
-    pub fn new() -> Self {
+    pub fn new(action: Action) -> Self {
         PaintArea {
             common: CommonBuilder::default(),
             style: Style::default(),
+            action: action,
         }
     }
 
-    fn handle_input(&self, ui: &Ui, id: id::Id) -> Option<PaintAction> {
-        let mut input = ui.widget_input(id);
+    fn handle_input(&self, ui: &Ui, mouse_pressed: bool) -> Option<PaintAction> {
 
-        let drag_option = input.drags().left().next();
-        if let Some(drag) = drag_option {
-            println!("Drag {:?}", drag.to);
-            return Some(PaintAction::Drag(drag.to));
-        }
-
-        let press_option = input.presses().mouse().left().next();
-        if let Some(press) = press_option {
-            println!("Press {:?}", press.0);
-            return Some(PaintAction::Press(press.0));
-            return None
-        }
-
-        let release_option = input.releases().mouse().left().next();
-        if let Some(_) = release_option {
-            println!("Release!");
+        let press_option = ui.global_input().current.mouse.buttons.pressed().next();
+        if press_option.is_some() {
+            let xy = ui.global_input().current.mouse.xy;
+            if mouse_pressed {
+                return Some(PaintAction::Drag(xy))
+            } else {
+                return Some(PaintAction::Press(xy))
+            }
+        } else if mouse_pressed && ui.global_input().current.mouse.buttons.left().is_up() {
             return Some(PaintAction::Release)
         }
         None
@@ -84,6 +80,7 @@ impl PaintArea {
             PaintAction::Press(point) => {
                 state.update(|state| {
                     state.points.push(point);
+                    state.mouse_pressed = true;
                 });
             },
             PaintAction::Drag(point) => {
@@ -93,8 +90,9 @@ impl PaintArea {
             },
             PaintAction::Release => {
 
-                println!("Added line2!");
+                println!("Added line!");
                 state.update(|state| {
+                    state.mouse_pressed = false;
 
                     if let Some(new_id) = state.id_pool.get() {
                         state.line_ids.push(new_id);
@@ -131,7 +129,8 @@ impl Widget for PaintArea {
     type Event = Option<()>;
 
     fn init_state<'b>(&self, id_gen: Generator) -> Self::State {
-        State { id_pool: IdPool::new(),
+        State { mouse_pressed: false,
+                id_pool: IdPool::new(),
                 ids: Ids::new(id_gen),
                 line_ids: vec![],
                 lines: vec![],
@@ -145,7 +144,11 @@ impl Widget for PaintArea {
     fn update(self, args: UpdateArgs<Self>) -> Self::Event {
         let UpdateArgs { id, mut state, mut ui, .. } = args;
 
-        if let Some(action) = self.handle_input(&ui, id) {
+        if self.action == Action::Cancel {
+            println!("CANCEL");
+        }
+
+        if let Some(action) = self.handle_input(&ui, state.mouse_pressed) {
 
             // Make sure we have enough Ids in the pool, in case a Widget is created
             state.update(|state| {
@@ -162,23 +165,6 @@ impl Widget for PaintArea {
             .set(state.ids.background, ui);
         */
 
-        let mut actions: Vec<PaintAction> = vec![];
-        for i in 0..state.line_ids.len() {
-
-            let line_id = state.line_ids[i];
-
-            if let Some(action) = self.handle_input(&ui, line_id) {
-                actions.push(action);
-            }                         
-        }
-        for action in actions.into_iter() {
-            // Make sure we have enough Ids in the pool, in case a Widget is created
-            state.update(|state| {
-                state.id_pool.repopulate(&mut ui.widget_id_generator());
-            });
-
-            self.handle_action(&mut state, action);
-        }
         for (line, &line_id) in state.lines.iter().zip(state.line_ids.iter()) {
             PointPath::abs(line.clone())
                 .middle_of(id)
