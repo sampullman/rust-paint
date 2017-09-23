@@ -16,7 +16,12 @@ use conrod::backend::glium::glium::Surface;
 use conrod::backend::winit::convert_event;
 use support::EventLoop;
 use self::paint_area::PaintArea;
-use self::paint_area::Action;
+
+#[derive(PartialEq)]
+pub enum Action {
+    None,
+    Quit,
+}
 
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
@@ -81,7 +86,7 @@ fn main() {
                 .set(ids.background, ui);
 
             // Instantiate of our custom widget.
-            for _click in PaintArea::new(action)
+            for _click in PaintArea::new()
                 .middle_of(ids.background)
                 .w_h(WIDTH as f64, HEIGHT as f64)
                 .set(ids.paint, ui)
@@ -119,7 +124,7 @@ fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut E
                         ..
                     },
                     ..
-                } => return Action::Cancel,
+                } => (),
                 _ => (),
             },
             _ => (),
