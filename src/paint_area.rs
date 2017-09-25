@@ -1,7 +1,8 @@
 use conrod::{widget, Colorable, Positionable, Widget};
-use conrod::widget::{Common, CommonBuilder, UpdateArgs, PointPath, id};
+use conrod::widget::{line, Common, CommonBuilder, UpdateArgs, PointPath};
 use conrod::widget::id::{Id, Generator};
-use conrod::{Ui, color};
+use conrod::widget::line::{Cap, Line};
+use conrod::{Ui, color, Scalar};
 use conrod::position::Point;
 use conrod::event;
 use conrod::input::Key;
@@ -22,6 +23,8 @@ widget_ids! {
     struct Ids {
         background,
         active,
+        test,
+        test2,
     }
 }
 
@@ -165,7 +168,7 @@ impl Widget for PaintArea {
                 ids: Ids::new(id_gen),
                 line_ids: vec![],
                 lines: vec![],
-                points: vec![] }
+                points: vec![], }
     }
 
     fn style(&self) -> Self::Style {
@@ -192,15 +195,20 @@ impl Widget for PaintArea {
             .set(state.ids.background, ui);
         */
 
+        const THICK: Scalar = 20.0;
+
         for (line, &line_id) in state.lines.iter().zip(state.line_ids.iter()) {
-            PointPath::abs(line.clone())
+            PointPath::abs_styled(line.clone(), line::Style::new().cap(Cap::Round))
                 .middle_of(id)
                 .color(color::BLACK)
+                .thickness(THICK)
                 .set(line_id, ui);
         }
-        PointPath::abs(state.points.clone())
+            
+        PointPath::abs_styled(state.points.clone(), line::Style::new().cap(Cap::Round))
                 .middle_of(id)
                 .color(color::BLACK)
+                .thickness(THICK)
                 .set(state.ids.active, ui);
 
         None
