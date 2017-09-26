@@ -16,12 +16,7 @@ use conrod::backend::glium::glium::Surface;
 use conrod::backend::winit::convert_event;
 use support::EventLoop;
 use self::paint_area::PaintArea;
-
-#[derive(PartialEq)]
-pub enum Action {
-    None,
-    Quit,
-}
+use self::paint_area::WindowAction;
 
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
@@ -71,7 +66,7 @@ fn main() {
     'main: loop {
 
         let action = handle_events(&mut ui, &display, &mut events_loop);
-        if action == Action::Quit {
+        if action == WindowAction::Quit {
             println!("QUIT");
             break 'main
         }
@@ -86,7 +81,7 @@ fn main() {
                 .set(ids.background, ui);
 
             // Instantiate of our custom widget.
-            for _click in PaintArea::new()
+            for action in PaintArea::new()
                 .middle_of(ids.background)
                 .w_h(WIDTH as f64, HEIGHT as f64)
                 .set(ids.paint, ui)
@@ -100,7 +95,7 @@ fn main() {
 }
 
 fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut EventsLoop, )
-        -> Action {
+        -> WindowAction {
     // Handle all events.
     let mut event_loop = EventLoop::new();
     for event in event_loop.next(&mut events_loop) {
@@ -115,7 +110,7 @@ fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut E
             glium::glutin::Event::WindowEvent { event, .. } => match event {
                 // Break from the loop upon `Escape`.
                 glium::glutin::WindowEvent::Closed => {
-                    return Action::Quit
+                    return WindowAction::Quit
                 },
                 glium::glutin::WindowEvent::KeyboardInput {
                     input: glium::glutin::KeyboardInput {
@@ -130,7 +125,7 @@ fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut E
             _ => (),
         }
     }
-    return Action::None
+    return WindowAction::None
 }
 
 fn render(ui: &mut conrod::Ui, renderer: &mut Renderer, display: &Display,
