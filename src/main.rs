@@ -2,9 +2,10 @@
 #[macro_use] extern crate conrod;
 #[macro_use] extern crate conrod_derive;
 extern crate find_folder;
-mod paint_area;
 
 #[cfg(all(feature="winit", feature="glium"))] mod support;
+
+pub mod paint;
 
 use conrod::backend::glium::Renderer;
 use conrod::glium;
@@ -15,12 +16,12 @@ use conrod::image::Map;
 use conrod::backend::glium::glium::Surface;
 use conrod::backend::winit::convert_event;
 use support::EventLoop;
-use self::paint_area::PaintArea;
-use self::paint_area::WindowAction;
+use paint::PaintWindow;
+use paint::WindowAction;
 
 #[cfg(all(feature="winit", feature="glium"))]
 fn main() {
-    use conrod::{self, color, widget, Colorable, Positionable, Sizeable, Widget};
+    use conrod::{self, Sizeable, Widget};
 
     const WIDTH: u32 = 1000;
     const HEIGHT: u32 = 600;
@@ -42,9 +43,6 @@ fn main() {
     // The `widget_ids` macro is a easy, safe way of generating a type for producing `widget::Id`s.
     widget_ids! {
         struct Ids {
-            // An ID for the background widget, upon which we'll place our custom button.
-            background,
-            // The WidgetId we'll use to plug our widget into the `Ui`.
             paint,
         }
     }
@@ -71,18 +69,10 @@ fn main() {
             break 'main
         }
 
-        // Instantiate the widgets.
         {
            let ui = &mut ui.set_widgets();
 
-            // Sets a color to clear the background with before the Ui draws our widget.
-            widget::Canvas::new()
-                .color(color::WHITE)
-                .set(ids.background, ui);
-
-            // Instantiate of our custom widget.
-            for action in PaintArea::new()
-                .middle_of(ids.background)
+            for action in PaintWindow::new()
                 .w_h(WIDTH as f64, HEIGHT as f64)
                 .set(ids.paint, ui)
             {

@@ -1,19 +1,13 @@
-use conrod::{widget, Colorable, Positionable, Widget};
-use conrod::widget::{line, Common, CommonBuilder, UpdateArgs, PointPath};
+use conrod::{Ui, color, Scalar, widget, Colorable, Positionable, Widget};
+use conrod::widget::{Common, CommonBuilder, UpdateArgs, PointPath};
 use conrod::widget::id::{Id, Generator};
-use conrod::widget::line::{Cap, Line};
+use conrod::widget::line::Cap;
 use conrod::widget::line::Style as LineStyle;
-use conrod::{Ui, color, Scalar};
 use conrod::position::Point;
 use conrod::event;
 use conrod::input::Key;
 use support::id::IdPool;
-
-#[derive(PartialEq)]
-pub enum WindowAction {
-    None,
-    Quit,
-}
+use paint::paint_window::WindowAction;
 
 pub struct PaintArea {
     /// Handles some of the dirty work of rendering a GUI.
@@ -28,9 +22,7 @@ pub struct Style {
 
 widget_ids! {
     struct Ids {
-        background,
         active,
-        test, test2, test3, test4,
     }
 }
 
@@ -158,7 +150,6 @@ impl Common for PaintArea {
     }
 }
 
-/// A custom Conrod widget must implement the Widget trait
 impl Widget for PaintArea {
     type State = State;
     type Style = Style;
@@ -192,15 +183,8 @@ impl Widget for PaintArea {
 
             self.handle_action(&mut state, action);
         }
-        /*
-        widget::Rectangle::fill([rect.w(), rect.h()])
-            .middle_of(id)
-            .graphics_for(id)
-            .color(color)
-            .set(state.ids.background, ui);
-        */
 
-        const THICK: Scalar = 20.0;
+        const THICK: Scalar = 12.0;
 
         for (line, &line_id) in state.lines.iter().zip(state.line_ids.iter()) {
             PointPath::abs_styled(line.clone(), LineStyle::new().cap(Cap::Round))
@@ -209,16 +193,6 @@ impl Widget for PaintArea {
                 .thickness(THICK)
                 .set(line_id, ui);
         }
-        Line::abs_styled([30.0, 30.0], [140.0, 30.0], LineStyle::new().cap(Cap::Round))
-            .color(color::BLACK)
-            .middle_of(id)
-            .thickness(25.0)
-            .set(state.ids.test, ui);
-        Line::abs_styled([50.0, 100.0], [50.0, 190.0], LineStyle::new().cap(Cap::Round))
-            .color(color::BLACK)
-            .middle_of(id)
-            .thickness(25.0)
-            .set(state.ids.test2, ui);
 
         PointPath::abs_styled(state.points.clone(), LineStyle::new().cap(Cap::Round))
             .middle_of(id)
