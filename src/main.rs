@@ -13,6 +13,7 @@ use conrod::glium::Display;
 use conrod::glium::texture::Texture2d;
 use conrod::glium::glutin::{ContextBuilder, WindowBuilder, EventsLoop, VirtualKeyCode};
 use conrod::image::Map;
+use conrod::input::keyboard;
 use conrod::backend::glium::glium::Surface;
 use conrod::backend::winit::convert_event;
 use support::EventLoop;
@@ -60,13 +61,19 @@ fn main() {
     // The image map describing each of our widget->image mappings (in our case, none).
     let image_map = Map::<Texture2d>::new();
 
-    // Poll events from the window.
+    let mut cmd_pressed = false; // TODO1 -- horribly hacky way of dealing with Mac cmd modifier
     'main: loop {
 
-        let action = handle_events(&mut ui, &display, &mut events_loop);
-        if action == WindowAction::Quit {
-            println!("QUIT");
-            break 'main
+        let action = handle_events(&mut ui, &display, &mut events_loop, cmd_pressed);
+        match action {
+            WindowAction::Quit => {
+                println!("QUIT");
+                break 'main
+            },
+            // TODO1 -- remove when possible
+            WindowAction::CmdPress => { cmd_pressed = true; },
+            WindowAction::CmdRelease => { cmd_pressed = false; },
+            _ => ()
         }
 
         {
@@ -76,7 +83,7 @@ fn main() {
                 .w_h(WIDTH as f64, HEIGHT as f64)
                 .set(ids.paint, ui)
             {
-                println!("Click!");
+                println!("Click! {:?}", action);
             }
         }
 
@@ -84,7 +91,7 @@ fn main() {
     }
 }
 
-fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut EventsLoop, )
+fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut EventsLoop, cmd_pressed: bool)
         -> WindowAction {
     // Handle all events.
     let mut event_loop = EventLoop::new();
@@ -110,6 +117,35 @@ fn handle_events(ui: &mut conrod::Ui, display: &Display, mut events_loop: &mut E
                     },
                     ..
                 } => (),
+                glium::glutin::WindowEvent::KeyboardInput {
+                    input: glium::glutin::KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Q),
+                        state: glium::glutin::ElementState::Pressed,
+                        ..
+                    },
+                    ..
+                } => {
+                    println!("{:?}", ui.global_input().current.touch);
+                    if ui.global_input().current.modifiers.contains(keyboard::CTRL) || cmd_pressed {
+                        return WindowAction::Quit
+                    }
+                    ()
+                },
+                // TODO1 -- remove when possible
+                glium::glutin::WindowEvent::KeyboardInput {
+                    input: glium::glutin::KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::LWin),
+                        state,
+                        ..
+                    },
+                    ..
+                } => {
+                    if state == glium::glutin::ElementState::Pressed {
+                        return WindowAction::CmdPress
+                    } else {
+                        return WindowAction::CmdRelease
+                    }   
+                }
                 _ => (),
             },
             _ => (),

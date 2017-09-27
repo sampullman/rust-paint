@@ -66,7 +66,7 @@ impl PaintArea {
                 match widget_event {
                     event::Widget::Press(press) => match press.button {
                         event::Button::Keyboard(key) => match key {
-                        
+                            
                             Key::Escape => {
                                 return Some(PaintAction::Cancel)
                             },

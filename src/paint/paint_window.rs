@@ -3,10 +3,12 @@ use conrod::widget::{Common, CommonBuilder, UpdateArgs};
 use conrod::widget::id::Generator;
 use super::PaintArea;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum WindowAction {
     None,
     Quit,
+    CmdPress, // TODO2 -- remove when possible
+    CmdRelease,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, WidgetStyle)]
@@ -68,7 +70,7 @@ impl Widget for PaintWindow {
     }
 
     fn update(self, args: UpdateArgs<Self>) -> Self::Event {
-        let UpdateArgs { id, state, mut ui, .. } = args;
+        let UpdateArgs { state, mut ui, .. } = args;
 
         widget::Canvas::new()
             .color(color::WHITE)
